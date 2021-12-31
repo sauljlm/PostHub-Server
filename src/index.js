@@ -11,7 +11,9 @@ require('dotenv').config();
 //inicialitations
 const app = express();
 
-mongoose.connect(process.env.MONGO_URI, { 
+const mongo_uri = "mongodb+srv://saul:sjlm2000@cluster0-wije2.mongodb.net/menosordinario?retryWrites=true&w=majority";
+
+mongoose.connect(mongo_uri, { 
     useNewUrlParser: true, 
     useUnifiedTopology: true,  
     useCreateIndex: true,
