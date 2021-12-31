@@ -11,6 +11,11 @@ claudinary.config({
     api_secret: 'W3NBvBWIP2Qe00JQYltXAzMLoSc'
 });
 
+router.get('/', async (req, res) => {
+    const posts = await Post.find();
+    res.json(posts);
+});
+
 router.get('/posts/get-posts', async (req, res) => {
     const posts = await Post.find();
     res.json(posts);
