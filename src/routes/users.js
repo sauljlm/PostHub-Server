@@ -3,9 +3,9 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const fs = require('fs-extra');
-const claudinary = require('cloudinary');
+const cloudinary = require('cloudinary');
 
-claudinary.config({
+cloudinary.config({
     cloud_name: 'dvdgijhpc',
     api_key: '992268627513137',
     api_secret: 'W3NBvBWIP2Qe00JQYltXAzMLoSc'
@@ -17,19 +17,25 @@ router.get('/users/get-users', async (req, res) => {
 });
 
 router.post('/users/new-user', async (req, res) => {
-    console.log(req.body);
-    const result = await claudinary.v2.uploader.upload(req.file.path);
+    console.log(JSON.stringify(req.file, null, 2));
+
+    console.log("DAta " + JSON.stringify(req.body, null, 2));
+    const result = await cloudinary.v2.uploader.upload(req.file.path);
     const newUser = new User({
         imageURL: result.url,
         public_id: result.public_id,
-        userName : req.body.userName,
-        userEmail: req.body.userEmail,
-        userBirthDate : req.body.userBirthDate,
-        bibliography: req.body.bibliography,
-        userType : 1,
-        userPassword : req.body.userPassword
+        userName: req.body.userName,
+        name: req.body.name,
+        bio: req.body.bio,
+        email: req.body.email,
+        gender: req.body.gender,
+        password: req.body.password,
+        birthDate: new Date(req.body.birthDate),
+        userType: req.body.userType,
     });
-    newUser.userPassword = await newUser.encryptPassword(req.body.userPassword);
+
+    console.log("NEW USER " +JSON.stringify(newUser, null, 2));
+    newUser.password = await newUser.encryptPassword(req.body.password);
 
     await newUser.save((error) => {
         if (error) {
@@ -48,8 +54,9 @@ router.post('/users/new-user', async (req, res) => {
 
 router.post('/users/log-in', async (req, res) => {
 	
-	const user = await User.findOne({userEmail: req.body.email});
+	const user = await User.findOne({email: req.body.email});
 	console.log(user);
+    console.log(req.body.email);
 		if(!user) {
 			res.status(500).send({
 				status: 500,
@@ -103,6 +110,34 @@ router.delete('/users/delete-user/:id', async (req, res) => {
             })
         }
     });
+});
+
+router.get('/users/get-user-by-email/:email', async (req, res) => {
+    try {
+        const { email } = req.params;
+        const user = await User.findOne({ email: email });
+        if (!user) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+        res.json(user);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Error al buscar el usuario" });
+    }
+});
+
+router.get('/users/get-user-by-username/:userName', async (req, res) => {
+    try {
+        const { userName } = req.params;
+        const user = await User.findOne({ userName: userName });
+        if (!user) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+        res.json(user);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Error al buscar el usuario" });
+    }
 });
 
 module.exports = router;

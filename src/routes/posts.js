@@ -17,7 +17,9 @@ router.get('/', async (req, res) => {
 });
 
 router.get('/posts/get-posts', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
     const posts = await Post.find();
+    console.log(posts);
     res.json(posts);
 });
 

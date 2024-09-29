@@ -1,7 +1,7 @@
 'use strict';
 const mongoose = require('mongoose');
 
-const schema_task = mongoose.Schema({
+const schema_post = mongoose.Schema({
     postTitle: { type: String, required: true },
     postDate: { type: Date, required: true },
     imageURL: { type: String, required: false},
@@ -11,4 +11,4 @@ const schema_task = mongoose.Schema({
     userEmail: { type: String, required: true }
 });
 
-module.exports = mongoose.model('Post', schema_task, 'posts');
+module.exports = mongoose.model('Post', schema_post);
