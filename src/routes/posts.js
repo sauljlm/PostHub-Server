@@ -28,12 +28,11 @@ router.post('/posts/new-post', async (req, res) => {
     const result = await claudinary.v2.uploader.upload(req.file.path);
     const newPost = new Post({
         imageURL: result.url,
-        public_id: result.public_id,
+        imagePublic_id: result.public_id,
         postTitle : req.body.postTitle,
         postDate : req.body.postDate,
         postDescription : req.body.postDescription,
-        userName : req.body.userName,
-        userEmail : req.body.userEmail
+        userName : req.body.userName
     });
     newPost.save((error) => {
         if (error) {
@@ -48,6 +47,35 @@ router.post('/posts/new-post', async (req, res) => {
         }
     });
     await fs.unlink(req.file.path); // delete local file
+});
+
+router.post('/posts/new-comment', async (req, res) => {
+    console.log(req.body);
+
+    const post = await Post.findById(req.body.userId);
+    if (!post) {
+        return { error: 'Post no encontrado' };
+    }
+
+    const newComment = new Comment({
+        userId : req.body.userId,
+        commentText : req.body.commentTitle,
+        commentDate : req.body.commentDate
+    });
+
+    post.comments.push(newComment);
+    await post.save((error) => {
+        if (error) {
+            res.status(500).send({
+                status: 500,
+                error: `El comentario no se pudo registar`
+            })
+        } else {
+            res.json({
+                msj: 'El comentario se agregó correctamente'
+            });
+        }
+    });
 });
 
 router.put('/posts/update-post/:id', async (req, res) => {

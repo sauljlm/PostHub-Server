@@ -12,7 +12,7 @@ const schema_user = mongoose.Schema({
     birthDate: { type: Date, required: true },
 
     imageURL: { type: String, required: false},
-    public_id: { type: String, required: false},
+    imagePublic_id: { type: String, required: false},
     userType: { type: String, required: true},
 });
 
