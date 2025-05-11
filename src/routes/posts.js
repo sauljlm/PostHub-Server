@@ -23,6 +23,20 @@ router.get('/posts/get-posts', async (req, res) => {
     res.json(posts);
 });
 
+router.get('/posts/get-posts/:userName', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+
+    const { userName } = req.params;
+    console.log(userName)
+
+    try {
+        const posts = await Post.find({ userName }).sort({ postDate: -1 });
+        res.json(posts);
+    } catch (err) {
+        res.status(500).json({ error: 'Error fetching posts' });
+    }
+});
+
 router.post('/posts/new-post', async (req, res) => {
     console.log(req.body);
     const result = await claudinary.v2.uploader.upload(req.file.path);
