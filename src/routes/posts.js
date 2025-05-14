@@ -23,6 +23,20 @@ router.get('/posts/get-posts', async (req, res) => {
     res.json(posts);
 });
 
+router.get('/posts/get-posts/:userName', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+
+    const { userName } = req.params;
+    console.log(userName)
+
+    try {
+        const posts = await Post.find({ userName }).sort({ postDate: -1 });
+        res.json(posts);
+    } catch (err) {
+        res.status(500).json({ error: 'Error fetching posts' });
+    }
+});
+
 router.post('/posts/new-post', async (req, res) => {
     console.log(req.body);
     const result = await claudinary.v2.uploader.upload(req.file.path);
@@ -102,6 +116,39 @@ router.put('/posts/update-post/:id', async (req, res) => {
         }
     });
 });
+
+router.put('/posts/toggle-like/:id', async (req, res) => {
+    const { userName } = req.body;
+
+    if (!userName) {
+        return res.status(400).json({ error: 'El nombre de usuario es requerido' });
+    }
+
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) {
+            return res.status(404).json({ error: 'Post no encontrado' });
+        }
+        // Buscar si ya dio like
+        const likeIndex = post.likes.findIndex(like => like.userName === userName);
+
+        if (likeIndex > -1) {
+            // Si ya dio like, lo eliminamos
+            post.likes.splice(likeIndex, 1);
+            await post.save();
+            return res.status(200).json({ message: 'Like eliminado', liked: false, likesCount: post.likes.length });
+        } else {
+            // Si no ha dado like, lo agregamos
+            post.likes.push({ userName });
+            await post.save();
+            return res.status(200).json({ message: 'Like agregado', liked: true, likesCount: post.likes.length });
+        }
+    } catch (error) {
+        console.error('Error en toggle-like:', error);
+        res.status(500).json({ error: 'Error al procesar el like' });
+    }
+});
+
 
 router.delete('/posts/delete-post/:id', async (req, res) => {
     const { id } = req.params;

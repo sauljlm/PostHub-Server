@@ -11,7 +11,7 @@ require('dotenv').config();
 //inicialitations
 const app = express();
 
-const mongo_uri = "mongodb+srv://sauljson:sjlm2000@cluster.hh3mjs5.mongodb.net/postHub?retryWrites=true&w=majority";
+const mongo_uri = "mongodb+srv://slopez1:sjlm123@cluster0.n7p3ap7.mongodb.net/pusthub?retryWrites=true&w=majority&appName=Cluster0";
 
 mongoose.connect(mongo_uri, { 
     useNewUrlParser: true, 
