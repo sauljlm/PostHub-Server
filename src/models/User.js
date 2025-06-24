@@ -14,6 +14,9 @@ const schema_user = mongoose.Schema({
     imageURL: { type: String, required: false},
     imagePublic_id: { type: String, required: false},
     userType: { type: String, required: true},
+
+    resetPasswordToken: { type: String, required: false},
+    resetPasswordExpires: { type: Date, required: false},
 });
 
 schema_user.methods.encryptPassword = async (password) => {
