@@ -6,7 +6,6 @@ const createMailerService = require("../services/mailer/mailerFactory");
 const fs = require('fs-extra');
 const cloudinary = require('cloudinary');
 const crypto = require("crypto");
-const path = require("path");
 
 const mailer = createMailerService();
 
@@ -39,7 +38,6 @@ router.post('/users/new-user', async (req, res) => {
         userType: req.body.userType,
     });
 
-    console.log("NEW USER " +JSON.stringify(newUser, null, 2));
     newUser.password = await newUser.encryptPassword(req.body.password);
 
     await newUser.save((error) => {
@@ -146,75 +144,84 @@ router.get('/users/get-user-by-username/:userName', async (req, res) => {
 
 router.post('/users/restore-password', async (req, res) => {
     try {
-      const { email } = req.body;
-      const user = await User.findOne({ email });
-  
-      if (!user) {
-        return res.status(404).json({ error: "Usuario no encontrado" });
-      }
- 
-      const token = crypto.randomBytes(32).toString("hex");
-  
-      user.resetPasswordToken = token;
-      user.resetPasswordExpires = Date.now() + 3600000;
-      await user.save();
+    const { email } = req.body;
+    const user = await User.findOne({ email });
 
-      const logoPath = path.resolve(__dirname, "../public/assets/posthub.png");
-      const logoContent = fs.readFileSync(logoPath);
-      const resetLink = `http://localhost:3000/reset-password/${token}`;
-      await mailer.sendMail({
+    if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000;
+    await user.save();
+
+    const resetLink = `http://localhost:3000/reset-password/${token}`;
+    await mailer.sendMail({
         from: `"Tu App" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Restaurar contraseña",
-        html:
-          "<div style=\"width: 100%; max-width: 800px; margin: auto; font-family: Arial, sans-serif;\">" +
-          "  <div style=\"background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 20px;\">" +
-          "    <div style=\"margin-bottom: 20px;\">" +
-          "      <img src=\"cid:logo\" style=\"height: 40px;\" alt=\"Post Hub logo\" />" +
-          "    </div>" +
-          `   <h2 style="color: #000;">Estimado ${user.name}!</h2>` +
-          "    <p style=\"font-size: 16px;\">Hemos recibido la solicitud de restablecer contraseña,<br/> a continuación encontrará su contraseña temporal.</p>" +
-          `   <a href="${resetLink}"><button style="padding: 10px; background-color: #83b106; color: #fff; border: none; border-radius: 5px; cursor: pointer;">Restaurar tu contraseña</button></a>` +
-          "    <br/><br/>" +
-          "    <p style=\"font-size: 16px;\">Gracias!</p>" +
-          "  </div>" +
-          "</div>",
-        attachments: [
-          {
-            filename: "posthub.png",
-            content: logoContent,
-            cid: "logo",
-            contentType: "image/png"
-          },
-        ],
-      });      
-  
-      console.log("Ruta resuelta:", logoPath);
-      res.json({ message: "Correo enviado con instrucciones" });
+        text: "",
+        html: `
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8" />
+                <title>Restaurar contraseña</title>
+                <style>
+                body, html {
+                    margin: 0;
+                    padding: 0;
+                    font-family: Arial, sans-serif;
+                }
+                </style>
+            </head>
+            <body style="font-family: Arial, sans-serif;">
+                <div style="width: 100%; max-width: 800px; margin: auto; font-family: Arial, sans-serif;">
+                    <div style="background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
+                        <div style="margin-bottom: 20px;">
+                            <img src="https://asset.cloudinary.com/dsvvkstfe/7c77f810a4efb766551cf287fbe1292b" width="40" alt="Post Hub logo">
+                        </div>
+                        <h2 style="color: #000;">Estimado ${user.name}!</h2>
+                        <p style="font-size: 16px;">Hemos recibido la solicitud de restablecer contraseña,<br/> a continuación el link para restablecer la contraseña</p>
+                        <a href="${resetLink}">
+                            <button style="padding: 10px; background-color: #83b106; color: #fff; border: none; border-radius: 5px; cursor: pointer;">
+                            Restaurar tu contraseña
+                            </button>
+                        </a>
+                        <br/><br/>
+                        <p style="font-size: 16px;">Gracias!</p>
+                    </div>
+                </div>
+            </body>
+            </html>`
+    });
+    
+    res.json({ message: "Correo enviado con instrucciones" });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Error en el proceso de restauración" });
+        console.error(err);
+        res.status(500).json({ error: "Error en el proceso de restauración" });
     }
-  });
+});
 
-  router.post('/users/reset-password', async (req, res) => {
+router.post('/users/reset-password', async (req, res) => {
     try {
       const { token, newPassword } = req.body;
   
       const user = await User.findOne({
         resetPasswordToken: token,
-        resetPasswordExpires: { $gt: Date.now() }, // verifica que no haya expirado
+        resetPasswordExpires: { $gt: Date.now() },
       });
-  
+
       if (!user) {
         return res.status(400).json({ error: "Token inválido o expirado" });
       }
-  
-      // Actualizar contraseña
-      user.password = newPassword; // Hashealo si no lo estás haciendo en un middleware
+
+      user.password = await user.encryptPassword(newPassword);
       user.resetPasswordToken = undefined;
       user.resetPasswordExpires = undefined;
-  
+
       await user.save();
   
       res.json({ message: "Contraseña actualizada exitosamente" });
@@ -222,6 +229,6 @@ router.post('/users/restore-password', async (req, res) => {
       console.error(err);
       res.status(500).json({ error: "Error al actualizar la contraseña" });
     }
-  });
+});
 
 module.exports = router;
