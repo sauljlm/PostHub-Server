@@ -14,11 +14,14 @@ const schema_user = mongoose.Schema({
     imageURL: { type: String, required: false},
     imagePublic_id: { type: String, required: false},
     userType: { type: String, required: true},
+
+    resetPasswordToken: { type: String, required: false},
+    resetPasswordExpires: { type: Date, required: false},
 });
 
 schema_user.methods.encryptPassword = async (password) => {
   const salt = await bcrypt.genSalt(10);
-  const hash = bcrypt.hash(password, salt);
+  const hash = await bcrypt.hash(password, salt);
   return hash;
 };
 

@@ -2,8 +2,12 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const createMailerService = require("../services/mailer/mailerFactory");
 const fs = require('fs-extra');
 const cloudinary = require('cloudinary');
+const crypto = require("crypto");
+
+const mailer = createMailerService();
 
 cloudinary.config({
     cloud_name: 'dvdgijhpc',
@@ -34,7 +38,6 @@ router.post('/users/new-user', async (req, res) => {
         userType: req.body.userType,
     });
 
-    console.log("NEW USER " +JSON.stringify(newUser, null, 2));
     newUser.password = await newUser.encryptPassword(req.body.password);
 
     await newUser.save((error) => {
@@ -64,7 +67,6 @@ router.post('/users/log-in', async (req, res) => {
 			})
 		} else {
 			const match = await user.matchPassword(req.body.password);
-			// console.log(req.body.password);
 			if(match) {
 				res.json(user);
 			} else {
@@ -137,6 +139,95 @@ router.get('/users/get-user-by-username/:userName', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Error al buscar el usuario" });
+    }
+});
+
+router.post('/users/restore-password', async (req, res) => {
+    try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000;
+    await user.save();
+
+    const resetLink = `http://localhost:3000/reset-password/${token}`;
+    await mailer.sendMail({
+        from: `"Tu App" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "Restaurar contraseña",
+        text: "",
+        html: `
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8" />
+                <title>Restaurar contraseña</title>
+                <style>
+                body, html {
+                    margin: 0;
+                    padding: 0;
+                    font-family: Arial, sans-serif;
+                }
+                </style>
+            </head>
+            <body style="font-family: Arial, sans-serif;">
+                <div style="width: 100%; max-width: 800px; margin: auto; font-family: Arial, sans-serif;">
+                    <div style="background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
+                        <div style="margin-bottom: 20px;">
+                            <img src="https://asset.cloudinary.com/dsvvkstfe/7c77f810a4efb766551cf287fbe1292b" width="40" alt="Post Hub logo">
+                        </div>
+                        <h2 style="color: #000;">Estimado ${user.name}!</h2>
+                        <p style="font-size: 16px;">Hemos recibido la solicitud de restablecer contraseña,<br/> a continuación el link para restablecer la contraseña</p>
+                        <a href="${resetLink}">
+                            <button style="padding: 10px; background-color: #83b106; color: #fff; border: none; border-radius: 5px; cursor: pointer;">
+                            Restaurar tu contraseña
+                            </button>
+                        </a>
+                        <br/><br/>
+                        <p style="font-size: 16px;">Gracias!</p>
+                    </div>
+                </div>
+            </body>
+            </html>`
+    });
+    
+    res.json({ message: "Correo enviado con instrucciones" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Error en el proceso de restauración" });
+    }
+});
+
+router.post('/users/reset-password', async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+  
+      const user = await User.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: Date.now() },
+      });
+
+      if (!user) {
+        return res.status(400).json({ error: "Token inválido o expirado" });
+      }
+
+      user.password = await user.encryptPassword(newPassword);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+
+      await user.save();
+  
+      res.json({ message: "Contraseña actualizada exitosamente" });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Error al actualizar la contraseña" });
     }
 });
 
