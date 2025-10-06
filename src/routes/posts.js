@@ -64,32 +64,32 @@ router.post('/posts/new-post', async (req, res) => {
 });
 
 router.post('/posts/new-comment', async (req, res) => {
-    console.log(req.body);
+    try {
+        console.log(req.body);
 
-    const post = await Post.findById(req.body.userId);
-    if (!post) {
-        return { error: 'Post no encontrado' };
-    }
-
-    const newComment = new Comment({
-        userId : req.body.userId,
-        commentText : req.body.commentTitle,
-        commentDate : req.body.commentDate
-    });
-
-    post.comments.push(newComment);
-    await post.save((error) => {
-        if (error) {
-            res.status(500).send({
-                status: 500,
-                error: `El comentario no se pudo registar`
-            })
-        } else {
-            res.json({
-                msj: 'El comentario se agregó correctamente'
-            });
+        const post = await Post.findById(req.body.postId);
+        if (!post) {
+            return res.status(404).json({ error: 'Post no encontrado' });
         }
-    });
+
+        post.comments.push({
+            userName: req.body.userName,
+            commentText: req.body.commentText,
+            commentDate: Date.now()
+        });
+
+        await post.save();
+
+        console.log('comment added ')
+
+        res.json({ msj: 'El comentario se agregó correctamente' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({
+            status: 500,
+            error: `El comentario no se pudo registrar`
+        });
+    }
 });
 
 router.put('/posts/update-post/:id', async (req, res) => {
@@ -148,7 +148,6 @@ router.put('/posts/toggle-like/:id', async (req, res) => {
         res.status(500).json({ error: 'Error al procesar el like' });
     }
 });
-
 
 router.delete('/posts/delete-post/:id', async (req, res) => {
     const { id } = req.params;
