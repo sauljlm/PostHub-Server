@@ -39,28 +39,42 @@ router.get('/posts/get-posts/:userName', async (req, res) => {
 
 router.post('/posts/new-post', async (req, res) => {
     console.log(req.body);
-    const result = await claudinary.v2.uploader.upload(req.file.path);
-    const newPost = new Post({
-        imageURL: result.url,
-        imagePublic_id: result.public_id,
-        postTitle : req.body.postTitle,
-        postDate : req.body.postDate,
-        postDescription : req.body.postDescription,
-        userName : req.body.userName
-    });
-    newPost.save((error) => {
-        if (error) {
-            res.status(500).send({
-                status: 500,
-                error: `El post no se pudo registar`
-            })
-        } else {
-            res.json({
-                msj: 'El post se registró correctamente'
+    const files = req.files || [];
+
+    try {
+        const media = [];
+        for (const file of files) {
+            const isVideo = file.mimetype.startsWith('video/');
+            const result = await claudinary.v2.uploader.upload(file.path, {
+                resource_type: isVideo ? 'video' : 'image'
             });
+            media.push({
+                url: result.url,
+                public_id: result.public_id,
+                type: isVideo ? 'video' : 'image'
+            });
+            await fs.unlink(file.path); // delete local file once uploaded
         }
-    });
-    await fs.unlink(req.file.path); // delete local file
+
+        const newPost = new Post({
+            media,
+            postTitle: req.body.postTitle,
+            postDate: req.body.postDate,
+            postDescription: req.body.postDescription,
+            userName: req.body.userName
+        });
+
+        await newPost.save();
+        res.json({ msj: 'El post se registró correctamente' });
+    } catch (error) {
+        console.error(error);
+        // Clean up any local files left behind if the upload/save failed partway through.
+        await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => {})));
+        res.status(500).send({
+            status: 500,
+            error: `El post no se pudo registar`
+        });
+    }
 });
 
 router.post('/posts/new-comment', async (req, res) => {
@@ -152,18 +166,27 @@ router.put('/posts/toggle-like/:id', async (req, res) => {
 router.delete('/posts/delete-post/:id', async (req, res) => {
     const { id } = req.params;
     console.log(id);
-    Post.findByIdAndDelete(id, (error) => {
-        if (error) {
-            res.status(500).send({
-                status: 500,
-                error: `El post no se pudo eliminar`
-            });
-        } else {
-            res.json({
-                msg: `se elimino con exito`
-            })
+
+    try {
+        const post = await Post.findByIdAndDelete(id);
+        if (!post) {
+            return res.status(404).send({ status: 404, error: `Post no encontrado` });
         }
-    });
+
+        // Remove the images/videos from Cloudinary too, so deleting a post
+        // doesn't leave orphaned media behind.
+        await Promise.all((post.media || []).map((item) =>
+            claudinary.v2.uploader.destroy(item.public_id, { resource_type: item.type }).catch(() => {})
+        ));
+
+        res.json({ msg: `se elimino con exito` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({
+            status: 500,
+            error: `El post no se pudo eliminar`
+        });
+    }
 });
 
 module.exports = router;

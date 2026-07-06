@@ -52,9 +52,15 @@ const storage = multer.diskStorage({
         cb(null, imageName() + path.extname(file.originalname));
     }
 });
-app.use(multer({
-    storage: storage
-}).single('file')); //say it thet I will push only one image with the input image
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100MB, videos need more room than images
+    fileFilter: (req, file, cb) => {
+        const isImageOrVideo = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
+        cb(isImageOrVideo ? null : new Error('Solo se permiten imágenes o videos'), isImageOrVideo);
+    }
+});
+app.use(upload.array('files', 10)); // up to 10 images/videos per post
 app.use(methodOverride('_method')); // to allow forms submit all methods not only get and post
 
 //static files
